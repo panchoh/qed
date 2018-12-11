@@ -19,33 +19,46 @@ package cache
 import (
 	"bytes"
 	"runtime/debug"
+	"time"
 
 	"github.com/bbva/qed/balloon/navigator"
 	"github.com/bbva/qed/hashing"
 	"github.com/bbva/qed/storage"
 	"github.com/coocood/freecache"
+	metrics "github.com/rcrowley/go-metrics"
 )
 
 type FreeCache struct {
 	cached *freecache.Cache
+
+	gets metrics.Timer
+	puts metrics.Timer
 }
 
 func NewFreeCache(initialSize int) *FreeCache {
 	cache := freecache.NewCache(initialSize)
 	debug.SetGCPercent(20)
-	return &FreeCache{cached: cache}
+	gets := metrics.NewTimer()
+	puts := metrics.NewTimer()
+	metrics.Register("cache.gets", gets)
+	metrics.Register("cache.puts", puts)
+	return &FreeCache{cached: cache, gets: gets, puts: puts}
 }
 
 func (c FreeCache) Get(pos navigator.Position) (hashing.Digest, bool) {
+	ts := time.Now()
 	value, err := c.cached.Get(pos.Bytes())
 	if err != nil {
 		return nil, false
 	}
+	c.gets.UpdateSince(ts)
 	return value, true
 }
 
 func (c *FreeCache) Put(pos navigator.Position, value hashing.Digest) {
+	ts := time.Now()
 	c.cached.Set(pos.Bytes(), value, 0)
+	c.puts.UpdateSince(ts)
 }
 
 func (c *FreeCache) Fill(r storage.KVPairReader) (err error) {
