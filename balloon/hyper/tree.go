@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/bbva/qed/balloon/cache"
 	"github.com/bbva/qed/balloon/navigator"
@@ -29,10 +30,11 @@ import (
 	"github.com/bbva/qed/metrics"
 	"github.com/bbva/qed/storage"
 	"github.com/bbva/qed/util"
+	met "github.com/rcrowley/go-metrics"
 )
 
 const (
-	CacheSize int64 = (1 << 26) * 68 // 2^26 elements * 68 bytes for entry
+	CacheSize int64 = (1 << 26) * 100 //68 // 2^26 elements * 68 bytes each entry
 )
 
 type HyperTree struct {
@@ -44,6 +46,10 @@ type HyperTree struct {
 	hasher        hashing.Hasher
 
 	sync.RWMutex
+
+	addTime      met.Timer
+	pruningTime  met.Timer
+	visitingTime met.Timer
 }
 
 func NewHyperTree(hasherF func() hashing.Hasher, store storage.Store, cache cache.ModifiableCache) *HyperTree {
@@ -66,10 +72,20 @@ func NewHyperTree(hasherF func() hashing.Hasher, store storage.Store, cache cach
 	// warm-up cache
 	tree.RebuildCache()
 
+	tree.addTime = met.NewTimer()
+	tree.pruningTime = met.NewTimer()
+	tree.visitingTime = met.NewTimer()
+	met.Register("hyper.add", tree.addTime)
+	met.Register("hyper.pruning", tree.pruningTime)
+	met.Register("hyper.visiting", tree.visitingTime)
+
 	return tree
 }
 
 func (t *HyperTree) Add(eventDigest hashing.Digest, version uint64) (hashing.Digest, []*storage.Mutation, error) {
+
+	ts1 := time.Now()
+
 	t.Lock()
 	defer t.Unlock()
 
@@ -91,20 +107,26 @@ func (t *HyperTree) Add(eventDigest hashing.Digest, version uint64) (hashing.Dig
 		defaultHashes: t.defaultHashes,
 	}
 
+	ts2 := time.Now()
 	// traverse from root and generate a visitable pruned tree
 	pruned, err := NewInsertPruner(eventDigest, versionAsBytes, context).Prune()
 	if err != nil {
 		return nil, nil, err
 	}
+	t.pruningTime.Update(time.Since(ts2))
 
+	ts3 := time.Now()
 	// visit the pruned tree
 	rootHash := pruned.PostOrder(collect).(hashing.Digest)
+	t.visitingTime.Update(time.Since(ts3))
 
 	// create a mutation for the new leaf
 	leafMutation := storage.NewMutation(storage.IndexPrefix, eventDigest, versionAsBytes)
 
 	// collect mutations
 	mutations := append(collect.Result(), leafMutation)
+
+	t.addTime.Update(time.Since(ts1))
 
 	// Increment add hits
 	stats.Add("add_hits", 1)

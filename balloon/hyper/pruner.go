@@ -70,7 +70,6 @@ func (p *InsertPruner) traverse(pos navigator.Position, leaves storage.KVRange) 
 	// if we are over the cache level, we need to do a range query to get the leaves
 	var atLastLevel bool
 	if atLastLevel = p.cacheResolver.ShouldCache(pos); atLastLevel {
-		//fmt.Println(pos.Height())
 		first := p.navigator.DescendToFirst(pos)
 		last := p.navigator.DescendToLast(pos)
 
@@ -95,7 +94,6 @@ func (p *InsertPruner) traverse(pos navigator.Position, leaves storage.KVRange) 
 			return nil, err
 		}
 		right, err = p.traverseWithoutCache(rightPos, rightSlice)
-
 	} else {
 		left, err = p.traverse(leftPos, leftSlice)
 		if err != nil {
@@ -139,7 +137,6 @@ func (p *InsertPruner) traverseWithoutCache(pos navigator.Position, leaves stora
 	if err != nil {
 		return nil, ErrLeavesSlice
 	}
-
 	right, err := p.traverseWithoutCache(rightPos, rightSlice)
 	if err != nil {
 		return nil, ErrLeavesSlice

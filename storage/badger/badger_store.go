@@ -30,12 +30,19 @@ import (
 
 	"github.com/bbva/qed/log"
 	"github.com/bbva/qed/storage"
+	"github.com/rcrowley/go-metrics"
 )
+
+type Stats struct {
+	mutations    metrics.Timer
+	rangeQueries metrics.Timer
+}
 
 type BadgerStore struct {
 	db                  *b.DB
 	vlogTicker          *time.Ticker // runs every 1m, check size of vlog and run GC conditionally.
 	mandatoryVlogTicker *time.Ticker // runs every 10m, we always run vlog GC.
+	stats               *Stats
 }
 
 // Options contains all the configuration used to open the Badger db
@@ -85,13 +92,21 @@ func NewBadgerStoreOpts(opts *Options) (*BadgerStore, error) {
 	bOpts.Dir = opts.Path
 	bOpts.ValueDir = opts.Path
 	bOpts.SyncWrites = false
+	bOpts.ValueThreshold = 1
 
 	db, err := b.Open(bOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	store := &BadgerStore{db: db}
+	stats := &Stats{
+		mutations:    metrics.NewTimer(),
+		rangeQueries: metrics.NewTimer(),
+	}
+	metrics.Register("badger.mutate", stats.mutations)
+	metrics.Register("badger.get_range", stats.rangeQueries)
+
+	store := &BadgerStore{db: db, stats: stats}
 	// Start GC routine
 	if opts.ValueLogGC {
 
@@ -118,7 +133,8 @@ func NewBadgerStoreOpts(opts *Options) (*BadgerStore, error) {
 }
 
 func (s BadgerStore) Mutate(mutations []*storage.Mutation) error {
-	return s.db.Update(func(txn *b.Txn) error {
+	ts := time.Now()
+	err := s.db.Update(func(txn *b.Txn) error {
 		for _, m := range mutations {
 			key := append([]byte{m.Prefix}, m.Key...)
 			err := txn.Set(key, m.Value)
@@ -128,9 +144,14 @@ func (s BadgerStore) Mutate(mutations []*storage.Mutation) error {
 		}
 		return nil
 	})
+	s.stats.mutations.Update(time.Since(ts))
+	return err
 }
 
 func (s BadgerStore) GetRange(prefix byte, start, end []byte) (storage.KVRange, error) {
+
+	ts := time.Now()
+
 	result := make(storage.KVRange, 0)
 	startKey := append([]byte{prefix}, start...)
 	endKey := append([]byte{prefix}, end...)
@@ -158,6 +179,9 @@ func (s BadgerStore) GetRange(prefix byte, start, end []byte) (storage.KVRange, 
 	if err != nil {
 		return nil, err
 	}
+
+	s.stats.rangeQueries.Update(time.Since(ts))
+
 	return result, nil
 }
 

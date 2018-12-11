@@ -18,7 +18,10 @@ package balloon
 
 import (
 	"fmt"
+	lg "log"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,6 +33,7 @@ import (
 	"github.com/bbva/qed/testutils/rand"
 	storage_utils "github.com/bbva/qed/testutils/storage"
 	"github.com/bbva/qed/util"
+	"github.com/rcrowley/go-metrics"
 )
 
 func TestAdd(t *testing.T) {
@@ -344,12 +348,18 @@ func BenchmarkAddBadger(b *testing.B) {
 	balloon, err := NewBalloon(store, hashing.NewSha256Hasher)
 	require.NoError(b, err)
 
+	t := metrics.NewTimer()
+	metrics.Register("balloon_add", t)
+	go metrics.Log(metrics.DefaultRegistry, 1*time.Minute, lg.New(os.Stderr, "metrics: ", lg.Lmicroseconds))
+
 	b.ResetTimer()
-	b.N = 100000
+	b.N = 10000000
 	for i := 0; i < b.N; i++ {
-		event := rand.Bytes(128)
-		_, mutations, _ := balloon.Add(event)
-		store.Mutate(mutations)
+		t.Time(func() {
+			event := rand.Bytes(128)
+			_, mutations, _ := balloon.Add(event)
+			store.Mutate(mutations)
+		})
 	}
 
 }

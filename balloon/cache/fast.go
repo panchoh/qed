@@ -17,31 +17,45 @@
 package cache
 
 import (
+	"time"
+
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/bbva/qed/balloon/navigator"
 	"github.com/bbva/qed/hashing"
 	"github.com/bbva/qed/storage"
+	"github.com/rcrowley/go-metrics"
 )
 
 type FastCache struct {
 	cached *fastcache.Cache
+
+	gets metrics.Timer
+	puts metrics.Timer
 }
 
 func NewFastCache(maxBytes int64) *FastCache {
 	cache := fastcache.New(int(maxBytes))
-	return &FastCache{cached: cache}
+	gets := metrics.NewTimer()
+	puts := metrics.NewTimer()
+	metrics.Register("cache.gets", gets)
+	metrics.Register("cache.puts", puts)
+	return &FastCache{cached: cache, gets: gets, puts: puts}
 }
 
 func (c FastCache) Get(pos navigator.Position) (hashing.Digest, bool) {
+	ts := time.Now()
 	value := c.cached.Get(nil, pos.Bytes())
 	if value == nil {
 		return nil, false
 	}
+	c.gets.UpdateSince(ts)
 	return value, true
 }
 
 func (c *FastCache) Put(pos navigator.Position, value hashing.Digest) {
+	ts := time.Now()
 	c.cached.Set(pos.Bytes(), value)
+	c.puts.UpdateSince(ts)
 }
 
 func (c *FastCache) Fill(r storage.KVPairReader) (err error) {

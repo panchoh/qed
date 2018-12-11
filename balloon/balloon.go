@@ -181,7 +181,7 @@ func (b *Balloon) RefreshVersion() error {
 func (b *Balloon) Add(event []byte) (*Snapshot, []*storage.Mutation, error) {
 
 	// Activate metrics gathering
-	stats := metrics.Balloon
+	//stats := metrics.Balloon
 
 	// Get version
 	version := b.version
@@ -224,8 +224,8 @@ func (b *Balloon) Add(event []byte) (*Snapshot, []*storage.Mutation, error) {
 	}
 
 	// Increment add hits and version
-	stats.AddFloat("add_hits", 1)
-	stats.Set("version", metrics.Uint64ToVar(version))
+	//stats.AddFloat("add_hits", 1)
+	//stats.Set("version", metrics.Uint64ToVar(version))
 
 	return snapshot, mutations, nil
 }

@@ -17,7 +17,10 @@
 package history
 
 import (
+	lg "log"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/bbva/qed/balloon/visitor"
 	"github.com/bbva/qed/hashing"
@@ -25,6 +28,7 @@ import (
 	"github.com/bbva/qed/storage/bplus"
 	"github.com/bbva/qed/testutils/rand"
 	storage_utils "github.com/bbva/qed/testutils/storage"
+	"github.com/rcrowley/go-metrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -379,11 +383,17 @@ func BenchmarkAdd(b *testing.B) {
 
 	tree := NewHistoryTree(hashing.NewSha256Hasher, store, 300)
 
-	b.N = 100000
+	tm := metrics.NewTimer()
+	metrics.Register("history_add", tm)
+	go metrics.Log(metrics.DefaultRegistry, 15*time.Second, lg.New(os.Stderr, "metrics: ", lg.Lmicroseconds))
+
+	b.N = 10000000
 	b.ResetTimer()
 	for i := uint64(0); i < uint64(b.N); i++ {
-		key := rand.Bytes(64)
-		_, mutations, _ := tree.Add(key, i)
-		store.Mutate(mutations)
+		tm.Time(func() {
+			key := rand.Bytes(64)
+			_, mutations, _ := tree.Add(key, i)
+			store.Mutate(mutations)
+		})
 	}
 }

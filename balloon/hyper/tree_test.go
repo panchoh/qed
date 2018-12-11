@@ -17,7 +17,10 @@
 package hyper
 
 import (
+	"expvar"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,6 +33,7 @@ import (
 	"github.com/bbva/qed/testutils/rand"
 	storage_utils "github.com/bbva/qed/testutils/storage"
 	"github.com/bbva/qed/util"
+	"github.com/rcrowley/go-metrics"
 )
 
 func TestAdd(t *testing.T) {
@@ -292,12 +296,72 @@ func BenchmarkAdd(b *testing.B) {
 	fastCache := cache.NewFastCache(CacheSize)
 	tree := NewHyperTree(hashing.NewSha256Hasher, store, fastCache)
 
+	t := metrics.NewTimer()
+	metrics.Register("hyper.test_add", t)
+
+	reg := metrics.NewPrefixedChildRegistry(metrics.DefaultRegistry, "store.")
+	storeNumReads := metrics.NewCounter()
+	storeNumWrites := metrics.NewCounter()
+	storeBytesRead := metrics.NewCounter()
+	storeBytesWritten := metrics.NewCounter()
+	storeGets := metrics.NewCounter()
+	storePuts := metrics.NewCounter()
+	storeBlockedPuts := metrics.NewCounter()
+	storeNumMemtableGets := metrics.NewCounter()
+	reg.Register("disk_reads_total", storeNumReads)
+	reg.Register("disk_writes_total", storeNumWrites)
+	reg.Register("read_bytes", storeBytesRead)
+	reg.Register("written_bytes", storeBytesWritten)
+	reg.Register("gets_total", storeGets)
+	reg.Register("puts_total", storePuts)
+	reg.Register("blocked_puts_total", storeBlockedPuts)
+	reg.Register("memtable_gets_total", storeNumMemtableGets)
+
+	f, _ := os.Create("/var/tmp/stats3")
+	defer f.Close()
+
+	go func() {
+		for _ = range time.Tick(1 * time.Minute) {
+
+			storeNumReads.Inc(expvar.Get("badger_disk_reads_total").(*expvar.Int).Value())
+			storeNumWrites.Inc(expvar.Get("badger_disk_writes_total").(*expvar.Int).Value())
+			storeBytesRead.Inc(expvar.Get("badger_read_bytes").(*expvar.Int).Value())
+			storeBytesWritten.Inc(expvar.Get("badger_written_bytes").(*expvar.Int).Value())
+			storeGets.Inc(expvar.Get("badger_gets_total").(*expvar.Int).Value())
+			storePuts.Inc(expvar.Get("badger_puts_total").(*expvar.Int).Value())
+			storeBlockedPuts.Inc(expvar.Get("badger_blocked_puts_total").(*expvar.Int).Value())
+			storeNumMemtableGets.Inc(expvar.Get("badger_memtable_gets_total").(*expvar.Int).Value())
+			expvar.Get("badger_lsm_level_gets_total").(*expvar.Map).Do(func(kv expvar.KeyValue) {
+				m := reg.GetOrRegister("lsm_level_gets_total."+kv.Key, metrics.NewCounter())
+				m.(metrics.Counter).Inc(kv.Value.(*expvar.Int).Value())
+			})
+			expvar.Get("badger_lsm_bloom_hits_total").(*expvar.Map).Do(func(kv expvar.KeyValue) {
+				m := reg.GetOrRegister("lsm_bloom_hits_total."+kv.Key, metrics.NewCounter())
+				m.(metrics.Counter).Inc(kv.Value.(*expvar.Int).Value())
+			})
+			expvar.Get("badger_pending_writes_total").(*expvar.Map).Do(func(kv expvar.KeyValue) {
+				m := reg.GetOrRegister("pending_writes_total", metrics.NewCounter())
+				m.(metrics.Counter).Inc(kv.Value.(*expvar.Int).Value())
+			})
+			expvar.Get("badger_lsm_size_bytes").(*expvar.Map).Do(func(kv expvar.KeyValue) {
+				m := reg.GetOrRegister("lsm_size_bytes", metrics.NewCounter())
+				m.(metrics.Counter).Inc(kv.Value.(*expvar.Int).Value())
+			})
+
+			metrics.WriteJSONOnce(metrics.DefaultRegistry, f)
+		}
+	}()
+
+	//go metrics.WriteJSON(metrics.DefaultRegistry, 1*time.Minute, f)
+
 	b.ResetTimer()
-	b.N = 100000
+	b.N = 20000000
 	for i := 0; i < b.N; i++ {
-		key := hasher.Do(rand.Bytes(32))
-		_, mutations, _ := tree.Add(key, uint64(i))
-		store.Mutate(mutations)
+		t.Time(func() {
+			key := hasher.Do(rand.Bytes(32))
+			_, mutations, _ := tree.Add(key, uint64(i))
+			store.Mutate(mutations)
+		})
 	}
 
 }
