@@ -58,6 +58,101 @@ func (p *InsertPruner) Prune() (visitor.Visitable, error) {
 	return p.traverse(p.navigator.Root(), leaves)
 }
 
+func (p *InsertPruner) PruneAndVisit(v visitor.PostOrderVisitor) (interface{}, error) {
+	leaves := storage.KVRange{storage.NewKVPair(p.key, p.value)}
+	return p.traverseAndVisit(p.navigator.Root(), leaves, v)
+}
+
+func (p *InsertPruner) traverseAndVisit(pos navigator.Position, leaves storage.KVRange, v visitor.PostOrderVisitor) (interface{}, error) {
+	if p.cacheResolver.ShouldBeInCache(pos) {
+		digest, ok := p.cache.Get(pos)
+		if !ok {
+			return v.VisitCached(pos, p.defaultHashes[pos.Height()]), nil
+		}
+		return v.VisitCached(pos, digest), nil
+	}
+
+	// if we are over the cache level, we need to do a range query to get the leaves
+	var atLastLevel bool
+	if atLastLevel = p.cacheResolver.ShouldCache(pos); atLastLevel {
+		first := p.navigator.DescendToFirst(pos)
+		last := p.navigator.DescendToLast(pos)
+
+		kvRange, _ := p.store.GetRange(storage.IndexPrefix, first.Index(), last.Index())
+
+		// replace leaves with new slice and append the previous to the new one
+		for _, l := range leaves {
+			kvRange = kvRange.InsertSorted(l)
+		}
+		leaves = kvRange
+	}
+
+	rightPos := p.navigator.GoToRight(pos)
+	leftPos := p.navigator.GoToLeft(pos)
+	leftSlice, rightSlice := leaves.Split(rightPos.Index())
+
+	var left, right interface{}
+	var err error
+	if atLastLevel {
+		left, err = p.traverseWithoutCacheAndVisit(leftPos, leftSlice, v)
+		if err != nil {
+			return nil, err
+		}
+		right, err = p.traverseWithoutCacheAndVisit(rightPos, rightSlice, v)
+	} else {
+		left, err = p.traverseAndVisit(leftPos, leftSlice, v)
+		if err != nil {
+			return nil, err
+		}
+		right, err = p.traverseAndVisit(rightPos, rightSlice, v)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if p.navigator.IsRoot(pos) {
+		return v.VisitRoot(pos, left, right), nil
+	}
+
+	result := v.VisitCacheable(pos, v.VisitNode(pos, left, right))
+	if p.cacheResolver.ShouldCollect(pos) {
+		return v.VisitCollectable(pos, result), nil
+	}
+
+	return result, nil
+}
+
+func (p *InsertPruner) traverseWithoutCacheAndVisit(pos navigator.Position, leaves storage.KVRange, v visitor.PostOrderVisitor) (interface{}, error) {
+	if p.navigator.IsLeaf(pos) && len(leaves) == 1 {
+		return v.VisitLeaf(pos, leaves[0].Value), nil
+	}
+	if !p.navigator.IsRoot(pos) && len(leaves) == 0 {
+		return v.VisitCached(pos, p.defaultHashes[pos.Height()]), nil
+	}
+	if len(leaves) > 1 && p.navigator.IsLeaf(pos) {
+		return nil, ErrLeavesSlice
+	}
+
+	// we do a post-order traversal
+
+	// split leaves
+	rightPos := p.navigator.GoToRight(pos)
+	leftSlice, rightSlice := leaves.Split(rightPos.Index())
+	left, err := p.traverseWithoutCacheAndVisit(p.navigator.GoToLeft(pos), leftSlice, v)
+	if err != nil {
+		return nil, ErrLeavesSlice
+	}
+	right, err := p.traverseWithoutCacheAndVisit(rightPos, rightSlice, v)
+	if err != nil {
+		return nil, ErrLeavesSlice
+	}
+
+	if p.navigator.IsRoot(pos) {
+		return v.VisitRoot(pos, left, right), nil
+	}
+	return v.VisitNode(pos, left, right), nil
+}
+
 func (p *InsertPruner) traverse(pos navigator.Position, leaves storage.KVRange) (visitor.Visitable, error) {
 	if p.cacheResolver.ShouldBeInCache(pos) {
 		digest, ok := p.cache.Get(pos)

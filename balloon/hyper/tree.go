@@ -108,17 +108,24 @@ func (t *HyperTree) Add(eventDigest hashing.Digest, version uint64) (hashing.Dig
 	}
 
 	ts2 := time.Now()
-	// traverse from root and generate a visitable pruned tree
-	pruned, err := NewInsertPruner(eventDigest, versionAsBytes, context).Prune()
+	result, err := NewInsertPruner(eventDigest, versionAsBytes, context).PruneAndVisit(collect)
 	if err != nil {
 		return nil, nil, err
 	}
-	t.pruningTime.Update(time.Since(ts2))
+	rootHash := result.(hashing.Digest)
+	t.visitingTime.Update(time.Since(ts2))
 
-	ts3 := time.Now()
-	// visit the pruned tree
-	rootHash := pruned.PostOrder(collect).(hashing.Digest)
-	t.visitingTime.Update(time.Since(ts3))
+	// // traverse from root and generate a visitable pruned tree
+	// pruned, err := NewInsertPruner(eventDigest, versionAsBytes, context).Prune()
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
+	// t.pruningTime.Update(time.Since(ts2))
+
+	// ts3 := time.Now()
+	// // visit the pruned tree
+	// rootHash := pruned.PostOrder(collect).(hashing.Digest)
+	// t.visitingTime.Update(time.Since(ts3))
 
 	// create a mutation for the new leaf
 	leafMutation := storage.NewMutation(storage.IndexPrefix, eventDigest, versionAsBytes)
