@@ -293,9 +293,9 @@ func BenchmarkAdd(b *testing.B) {
 	defer closeF()
 
 	hasher := hashing.NewSha256Hasher()
-	//fastCache := cache.NewFastCache(CacheSize)
-	freeCache := cache.NewFreeCache((1 << 26) * 100)
-	tree := NewHyperTree(hashing.NewSha256Hasher, store, freeCache)
+	fastCache := cache.NewFastCache(CacheSize)
+	//freeCache := cache.NewFreeCache((1 << 26) * 100)
+	tree := NewHyperTree(hashing.NewSha256Hasher, store, fastCache)
 
 	t := metrics.NewTimer()
 	metrics.Register("hyper.test_add", t)
@@ -309,6 +309,7 @@ func BenchmarkAdd(b *testing.B) {
 	storePuts := metrics.NewCounter()
 	storeBlockedPuts := metrics.NewCounter()
 	storeNumMemtableGets := metrics.NewCounter()
+	cacheSize := metrics.NewCounter()
 	reg.Register("disk_reads_total", storeNumReads)
 	reg.Register("disk_writes_total", storeNumWrites)
 	reg.Register("read_bytes", storeBytesRead)
@@ -317,6 +318,10 @@ func BenchmarkAdd(b *testing.B) {
 	reg.Register("puts_total", storePuts)
 	reg.Register("blocked_puts_total", storeBlockedPuts)
 	reg.Register("memtable_gets_total", storeNumMemtableGets)
+	metrics.Register("cache.size", cacheSize)
+
+	metrics.RegisterDebugGCStats(metrics.DefaultRegistry)
+	metrics.RegisterRuntimeMemStats(metrics.DefaultRegistry)
 
 	f, _ := os.Create("/var/tmp/stats3")
 	defer f.Close()
@@ -348,6 +353,10 @@ func BenchmarkAdd(b *testing.B) {
 				m := reg.GetOrRegister("lsm_size_bytes", metrics.NewCounter())
 				m.(metrics.Counter).Inc(kv.Value.(*expvar.Int).Value())
 			})
+			cacheSize.Clear()
+			cacheSize.Inc(int64(fastCache.Size()))
+			metrics.CaptureDebugGCStatsOnce(metrics.DefaultRegistry)
+			metrics.CaptureRuntimeMemStatsOnce(metrics.DefaultRegistry)
 
 			metrics.WriteJSONOnce(metrics.DefaultRegistry, f)
 		}

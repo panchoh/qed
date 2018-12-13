@@ -49,6 +49,7 @@ func (c FreeCache) Get(pos navigator.Position) (hashing.Digest, bool) {
 	ts := time.Now()
 	value, err := c.cached.Get(pos.Bytes())
 	if err != nil {
+		c.gets.UpdateSince(ts)
 		return nil, false
 	}
 	c.gets.UpdateSince(ts)

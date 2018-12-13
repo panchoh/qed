@@ -46,6 +46,7 @@ func (c FastCache) Get(pos navigator.Position) (hashing.Digest, bool) {
 	ts := time.Now()
 	value := c.cached.Get(nil, pos.Bytes())
 	if value == nil {
+		c.gets.UpdateSince(ts)
 		return nil, false
 	}
 	c.gets.UpdateSince(ts)
