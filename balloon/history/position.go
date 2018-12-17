@@ -17,25 +17,33 @@
 package history
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/bbva/qed/util"
 )
 
 type HistoryPosition struct {
-	index  uint64
+	index  []byte
 	height uint16
 }
 
 func NewPosition(index uint64, height uint16) *HistoryPosition {
-	return &HistoryPosition{
-		index:  index,
-		height: height,
-	}
+	var p HistoryPosition
+	p.index = make([]byte, 8)
+	binary.LittleEndian.PutUint64(p.index, index)
+	p.height = height
+	return &p
+	/*
+		return &HistoryPosition{
+			index:  index,
+			height: height,
+		} */
 }
 
 func (p HistoryPosition) Index() []byte {
-	return util.Uint64AsBytes(p.index)
+	return p.index
+	// return util.Uint64AsBytes(p.index)
 }
 
 func (p HistoryPosition) Height() uint16 {
@@ -43,14 +51,14 @@ func (p HistoryPosition) Height() uint16 {
 }
 
 func (p HistoryPosition) IndexAsUint64() uint64 {
-	return p.index
+	return binary.LittleEndian.Uint64(p.index)
 }
 
 func (p HistoryPosition) Bytes() []byte {
-	b := make([]byte, 10) // Size of the index plus 2 bytes for the height
-	indexAsBytes := p.Index()
-	copy(b, indexAsBytes)
-	copy(b[len(indexAsBytes):], util.Uint16AsBytes(p.height))
+	size := len(p.index) + 2 // Size of the index plus 2 bytes for the height
+	b := make([]byte, size)
+	copy(b, p.index)
+	copy(b[len(p.index):], util.Uint16AsBytes(p.height))
 	return b
 }
 

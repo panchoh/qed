@@ -43,8 +43,13 @@ func (p HyperPosition) Height() uint16 {
 	return p.height
 }
 
+func (p HyperPosition) IndexAsUint64() uint64 {
+	return binary.LittleEndian.Uint64(p.index)
+}
+
 func (p HyperPosition) Bytes() []byte {
-	b := make([]byte, 34) // Size of the index plus 2 bytes for the height
+	size := len(p.index) + 2 // Size of the index plus 2 bytes for the height
+	b := make([]byte, size)
 	copy(b, p.index)
 	copy(b[len(p.index):], util.Uint16AsBytes(p.height))
 	return b
@@ -56,8 +61,4 @@ func (p HyperPosition) String() string {
 
 func (p HyperPosition) StringId() string {
 	return fmt.Sprintf("%x|%d", p.index, p.height)
-}
-
-func (p HyperPosition) IndexAsUint64() uint64 {
-	return binary.LittleEndian.Uint64(p.index)
 }
