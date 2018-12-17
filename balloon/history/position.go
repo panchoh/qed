@@ -34,16 +34,10 @@ func NewPosition(index uint64, height uint16) *HistoryPosition {
 	binary.LittleEndian.PutUint64(p.index, index)
 	p.height = height
 	return &p
-	/*
-		return &HistoryPosition{
-			index:  index,
-			height: height,
-		} */
 }
 
 func (p HistoryPosition) Index() []byte {
 	return p.index
-	// return util.Uint64AsBytes(p.index)
 }
 
 func (p HistoryPosition) Height() uint16 {
