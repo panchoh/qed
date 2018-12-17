@@ -1,6 +1,7 @@
 package hyper2
 
 import (
+	"encoding/binary"
 	"expvar"
 	"os"
 	"testing"
@@ -58,9 +59,11 @@ func BenchmarkAdd(b *testing.B) {
 	defer closeF()
 
 	hasher := hashing.NewSha256Hasher()
-	fastCache := NewFastCache(CacheSize)
-	//freeCache := cache.NewFreeCache((1 << 26) * 100)
-	tree := NewHyperTree(hashing.NewSha256Hasher, store, fastCache)
+	//fastCache := NewFastCache(CacheSize)
+	freeCache := NewFreeCache((1 << 28) * 70)
+	//bigCache := NewBigCache(1<<26, 100)
+	//fixedCache := NewFixedSizeCache(1 << 26)
+	tree := NewHyperTree(hashing.NewSha256Hasher, store, freeCache)
 
 	t := metrics.NewTimer()
 	metrics.Register("hyper.test_add", t)
@@ -118,7 +121,7 @@ func BenchmarkAdd(b *testing.B) {
 				m := reg.GetOrRegister("lsm_size_bytes", metrics.NewGauge())
 				m.(metrics.Gauge).Update(kv.Value.(*expvar.Int).Value())
 			})
-			cacheSize.Update(int64(fastCache.Size()))
+			cacheSize.Update(int64(freeCache.Size()))
 			metrics.CaptureDebugGCStatsOnce(metrics.DefaultRegistry)
 			metrics.CaptureRuntimeMemStatsOnce(metrics.DefaultRegistry)
 
@@ -129,12 +132,106 @@ func BenchmarkAdd(b *testing.B) {
 	//go metrics.WriteJSON(metrics.DefaultRegistry, 1*time.Minute, f)
 
 	b.ResetTimer()
-	b.N = 20000000
+	b.N = 200000000
+	for i := 0; i < b.N; i++ {
+		t.Time(func() {
+			index := make([]byte, 8)
+			binary.LittleEndian.PutUint64(index, uint64(i))
+			e := append(rand.Bytes(32), index...)
+			key := hasher.Do(e)
+			_, mutations, _ := tree.Add(key, uint64(i))
+			store.Mutate(mutations)
+		})
+	}
+
+}
+
+func BenchmarkAdd2(b *testing.B) {
+
+	log.SetLogger("BenchmarkAdd2", log.SILENT)
+
+	store, closeF := storage_utils.OpenBadgerStore(b, "/var/tmp/hyper_tree_test.db")
+	defer closeF()
+
+	hasher := hashing.NewSha256Hasher()
+	//fastCache := NewFastCache(CacheSize)
+	freeCache := NewFreeCache((1 << 26) * 100)
+	//bigCache := NewBigCache(1<<26, 100)
+	//fixedCache := NewFixedSizeCache(1 << 26)
+	tree := NewHyperTree(hashing.NewSha256Hasher, store, freeCache)
+
+	t := metrics.NewTimer()
+	metrics.Register("hyper.test_add", t)
+
+	reg := metrics.NewPrefixedChildRegistry(metrics.DefaultRegistry, "store.")
+	storeNumReads := metrics.NewGauge()
+	storeNumWrites := metrics.NewGauge()
+	storeBytesRead := metrics.NewGauge()
+	storeBytesWritten := metrics.NewGauge()
+	storeGets := metrics.NewGauge()
+	storePuts := metrics.NewGauge()
+	storeBlockedPuts := metrics.NewGauge()
+	storeNumMemtableGets := metrics.NewGauge()
+	cacheSize := metrics.NewGauge()
+	reg.Register("disk_reads_total", storeNumReads)
+	reg.Register("disk_writes_total", storeNumWrites)
+	reg.Register("read_bytes", storeBytesRead)
+	reg.Register("written_bytes", storeBytesWritten)
+	reg.Register("gets_total", storeGets)
+	reg.Register("puts_total", storePuts)
+	reg.Register("blocked_puts_total", storeBlockedPuts)
+	reg.Register("memtable_gets_total", storeNumMemtableGets)
+	metrics.Register("cache.size", cacheSize)
+
+	metrics.RegisterDebugGCStats(metrics.DefaultRegistry)
+	metrics.RegisterRuntimeMemStats(metrics.DefaultRegistry)
+
+	f, _ := os.Create("/var/tmp/stats3")
+	defer f.Close()
+
+	go func() {
+		for _ = range time.Tick(30 * time.Second) {
+
+			storeNumReads.Update(expvar.Get("badger_disk_reads_total").(*expvar.Int).Value())
+			storeNumWrites.Update(expvar.Get("badger_disk_writes_total").(*expvar.Int).Value())
+			storeBytesRead.Update(expvar.Get("badger_read_bytes").(*expvar.Int).Value())
+			storeBytesWritten.Update(expvar.Get("badger_written_bytes").(*expvar.Int).Value())
+			storeGets.Update(expvar.Get("badger_gets_total").(*expvar.Int).Value())
+			storePuts.Update(expvar.Get("badger_puts_total").(*expvar.Int).Value())
+			storeBlockedPuts.Update(expvar.Get("badger_blocked_puts_total").(*expvar.Int).Value())
+			storeNumMemtableGets.Update(expvar.Get("badger_memtable_gets_total").(*expvar.Int).Value())
+			expvar.Get("badger_lsm_level_gets_total").(*expvar.Map).Do(func(kv expvar.KeyValue) {
+				m := reg.GetOrRegister("lsm_level_gets_total."+kv.Key, metrics.NewGauge())
+				m.(metrics.Gauge).Update(kv.Value.(*expvar.Int).Value())
+			})
+			expvar.Get("badger_lsm_bloom_hits_total").(*expvar.Map).Do(func(kv expvar.KeyValue) {
+				m := reg.GetOrRegister("lsm_bloom_hits_total."+kv.Key, metrics.NewGauge())
+				m.(metrics.Gauge).Update(kv.Value.(*expvar.Int).Value())
+			})
+			expvar.Get("badger_pending_writes_total").(*expvar.Map).Do(func(kv expvar.KeyValue) {
+				m := reg.GetOrRegister("pending_writes_total", metrics.NewGauge())
+				m.(metrics.Gauge).Update(kv.Value.(*expvar.Int).Value())
+			})
+			expvar.Get("badger_lsm_size_bytes").(*expvar.Map).Do(func(kv expvar.KeyValue) {
+				m := reg.GetOrRegister("lsm_size_bytes", metrics.NewGauge())
+				m.(metrics.Gauge).Update(kv.Value.(*expvar.Int).Value())
+			})
+			cacheSize.Update(int64(freeCache.Size()))
+			metrics.CaptureDebugGCStatsOnce(metrics.DefaultRegistry)
+			metrics.CaptureRuntimeMemStatsOnce(metrics.DefaultRegistry)
+
+			metrics.WriteJSONOnce(metrics.DefaultRegistry, f)
+		}
+	}()
+
+	//go metrics.WriteJSON(metrics.DefaultRegistry, 1*time.Minute, f)
+
+	b.ResetTimer()
+	b.N = 200000000
 	for i := 0; i < b.N; i++ {
 		t.Time(func() {
 			key := hasher.Do(rand.Bytes(32))
-			_, mutations, _ := tree.Add(key, uint64(i))
-			store.Mutate(mutations)
+			tree.Add2(key, uint64(i))
 		})
 	}
 

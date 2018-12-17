@@ -18,27 +18,23 @@ func NewSingleTargetedCacheResolver(numBits, cacheLevel uint16, targetKey []byte
 }
 
 func (r SingleTargetedCacheResolver) ShouldBeInCache(pos *Position) bool {
-	return pos.Height() >= r.cacheLevel && !r.IsOnPath(pos)
+	return pos.Height >= r.cacheLevel && !r.IsOnPath(pos)
 }
 
 func (r SingleTargetedCacheResolver) ShouldCache(pos *Position) bool {
-	return pos.Height() == r.cacheLevel
+	return pos.Height == r.cacheLevel
 }
 
 func (r SingleTargetedCacheResolver) ShouldCollect(pos *Position) bool {
-	return pos.Height() == r.cacheLevel
+	return pos.Height == r.cacheLevel
 }
 
 /*
 	This method does not reach leafs. Goes from root (bit := 0) to height=1 (bit := numbits - 1)
 */
 func (r SingleTargetedCacheResolver) IsOnPath(pos *Position) bool {
-	height := pos.Height()
-	if height == r.numBits {
-		return true
-	}
-	bit := r.numBits - height - 1
-	return bitIsSet(r.targetKey, bit) == bitIsSet(pos.Index(), bit)
+	bit := r.numBits - pos.Height - 1
+	return bitIsSet(r.targetKey, bit) == bitIsSet(pos.Index, bit)
 }
 
 /*

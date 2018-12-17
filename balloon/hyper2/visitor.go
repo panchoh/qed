@@ -65,7 +65,7 @@ func NewCachingVisitor(decorated *ComputeHashVisitor, cache ModifiableCache) *Ca
 }
 
 func (v *CachingVisitor) VisitCacheable(pos *Position, result interface{}) interface{} {
-	v.cache.Put(pos, result.(hashing.Digest))
+	v.cache.Put(pos.Bytes(), result.(hashing.Digest))
 	return result
 }
 

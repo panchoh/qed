@@ -14,35 +14,35 @@ func (n HyperTreeNavigator) Root() *Position {
 }
 
 func (n HyperTreeNavigator) IsLeaf(pos *Position) bool {
-	return pos.Height() == 0
+	return pos.Height == 0
 }
 
 func (n HyperTreeNavigator) IsRoot(pos *Position) bool {
-	return pos.Height() == n.numBits
+	return pos.Height == n.numBits
 }
 
 func (n HyperTreeNavigator) GoToLeft(pos *Position) *Position {
-	if pos.Height() == 0 {
+	if pos.Height == 0 {
 		return nil
 	}
-	return NewPosition(pos.Index(), pos.Height()-1)
+	return NewPosition(pos.Index, pos.Height-1)
 }
 
 func (n HyperTreeNavigator) GoToRight(pos *Position) *Position {
-	if pos.Height() == 0 {
+	if pos.Height == 0 {
 		return nil
 	}
-	return NewPosition(n.splitBase(pos), pos.Height()-1)
+	return NewPosition(n.splitBase(pos), pos.Height-1)
 }
 
 func (n HyperTreeNavigator) DescendToFirst(pos *Position) *Position {
-	return NewPosition(pos.Index(), 0)
+	return NewPosition(pos.Index, 0)
 }
 
 func (n HyperTreeNavigator) DescendToLast(pos *Position) *Position {
-	layer := n.numBits - pos.Height()
+	layer := n.numBits - pos.Height
 	base := make([]byte, n.numBits/8)
-	copy(base, pos.Index())
+	copy(base, pos.Index)
 	for bit := layer; bit < n.numBits; bit++ {
 		bitSet(base, bit)
 	}
@@ -50,9 +50,9 @@ func (n HyperTreeNavigator) DescendToLast(pos *Position) *Position {
 }
 
 func (n HyperTreeNavigator) splitBase(pos *Position) []byte {
-	splitBit := n.numBits - pos.Height()
+	splitBit := n.numBits - pos.Height
 	split := make([]byte, n.numBits/8)
-	copy(split, pos.Index())
+	copy(split, pos.Index)
 	if splitBit < n.numBits {
 		bitSet(split, splitBit)
 	}

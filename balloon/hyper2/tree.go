@@ -1,7 +1,6 @@
 package hyper2
 
 import (
-	"math"
 	"sync"
 	"time"
 
@@ -13,7 +12,7 @@ import (
 )
 
 const (
-	CacheSize int64 = (1 << 26) * 100 //68 // 2^26 elements * 68 bytes each entry
+	CacheSize int64 = (1 << 26) * 70 //68 // 2^26 elements * 68 bytes each entry
 )
 
 type HyperTree struct {
@@ -29,11 +28,13 @@ type HyperTree struct {
 	addTime      metrics.Timer
 	pruningTime  metrics.Timer
 	visitingTime metrics.Timer
+	pruningStats *PruningStats
 }
 
 func NewHyperTree(hasherF func() hashing.Hasher, store storage.Store, cache ModifiableCache) *HyperTree {
 	hasher := hasherF()
-	cacheLevel := hasher.Len() - uint16(math.Max(float64(2), math.Floor(float64(hasher.Len())/10)))
+	//cacheLevel := hasher.Len() - uint16(math.Max(float64(2), math.Floor(float64(hasher.Len())/10)))
+	cacheLevel := hasher.Len() - 27
 	tree := &HyperTree{
 		store:         store,
 		cache:         cache,
@@ -58,6 +59,17 @@ func NewHyperTree(hasherF func() hashing.Hasher, store storage.Store, cache Modi
 	metrics.Register("hyper.pruning", tree.pruningTime)
 	metrics.Register("hyper.visiting", tree.visitingTime)
 
+	tree.pruningStats = &PruningStats{
+		ThroughCache: metrics.NewTimer(),
+		AfterCache:   metrics.NewTimer(),
+		GetLeaves:    metrics.NewTimer(),
+		Leaves:       metrics.NewHistogram(metrics.NewExpDecaySample(1028, 0.015)),
+	}
+	metrics.Register("hyper.pruning.though_cache", tree.pruningStats.ThroughCache)
+	metrics.Register("hyper.pruning.after_cache", tree.pruningStats.AfterCache)
+	metrics.Register("hyper.pruning.get_leaves", tree.pruningStats.GetLeaves)
+	metrics.Register("hyper.pruning.leaves", tree.pruningStats.Leaves)
+
 	return tree
 }
 
@@ -81,6 +93,7 @@ func (t *HyperTree) Add(eventDigest hashing.Digest, version uint64) (hashing.Dig
 		cache:         t.cache,
 		store:         t.store,
 		defaultHashes: t.defaultHashes,
+		stats:         t.pruningStats,
 	}
 
 	ts2 := time.Now()
@@ -131,8 +144,8 @@ func (t *HyperTree) RebuildCache() error {
 }
 
 func (t *HyperTree) populateCache(pos *Position, nav *HyperTreeNavigator) hashing.Digest {
-	if pos.Height() == t.cacheLevel {
-		cached, ok := t.cache.Get(pos)
+	if pos.Height == t.cacheLevel {
+		cached, ok := t.cache.Get(pos.Bytes())
 		if !ok {
 			return nil
 		}
@@ -147,13 +160,47 @@ func (t *HyperTree) populateCache(pos *Position, nav *HyperTreeNavigator) hashin
 		return nil
 	}
 	if left == nil {
-		left = t.defaultHashes[leftPos.Height()]
+		left = t.defaultHashes[leftPos.Height]
 	}
 	if right == nil {
-		right = t.defaultHashes[rightPos.Height()]
+		right = t.defaultHashes[rightPos.Height]
 	}
 
 	digest := t.hasher.Salted(pos.Bytes(), left, right)
-	t.cache.Put(pos, digest)
+	t.cache.Put(pos.Bytes(), digest)
 	return digest
+}
+
+func (t *HyperTree) Add2(eventDigest hashing.Digest, version uint64) (hashing.Digest, error) {
+
+	ts1 := time.Now()
+
+	t.Lock()
+	defer t.Unlock()
+
+	// visitors
+	computeHash := NewComputeHashVisitor(t.hasher)
+	caching := NewCachingVisitor(computeHash, t.cache)
+
+	// build pruning context
+	versionAsBytes := util.Uint64AsBytes(version)
+	context := PruningContext{
+		navigator:     NewHyperTreeNavigator(t.hasher.Len()),
+		cacheResolver: NewSingleTargetedCacheResolver(t.hasher.Len(), t.cacheLevel, eventDigest),
+		cache:         t.cache,
+		store:         t.store,
+		defaultHashes: t.defaultHashes,
+		stats:         nil,
+	}
+
+	ts2 := time.Now()
+	result, err := NewInsertPruner2(eventDigest, versionAsBytes, context).PruneAndVisit(caching)
+	if err != nil {
+		return nil, err
+	}
+	rootHash := result.(hashing.Digest)
+	t.visitingTime.Update(time.Since(ts2))
+	t.addTime.Update(time.Since(ts1))
+
+	return rootHash, nil
 }
