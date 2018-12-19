@@ -34,7 +34,7 @@ type HyperTree struct {
 func NewHyperTree(hasherF func() hashing.Hasher, store storage.Store, cache ModifiableCache) *HyperTree {
 	hasher := hasherF()
 	//cacheLevel := hasher.Len() - uint16(math.Max(float64(2), math.Floor(float64(hasher.Len())/10)))
-	cacheLevel := hasher.Len() - 27
+	cacheLevel := hasher.Len() - 26
 	tree := &HyperTree{
 		store:         store,
 		cache:         cache,
@@ -83,7 +83,7 @@ func (t *HyperTree) Add(eventDigest hashing.Digest, version uint64) (hashing.Dig
 	// visitors
 	computeHash := NewComputeHashVisitor(t.hasher)
 	caching := NewCachingVisitor(computeHash, t.cache)
-	collect := NewCollectMutationsVisitor(caching, storage.HyperCachePrefix)
+	collect := NewCollectMutationsVisitor(caching)
 
 	// build pruning context
 	versionAsBytes := util.Uint64AsBytes(version)
@@ -105,14 +105,14 @@ func (t *HyperTree) Add(eventDigest hashing.Digest, version uint64) (hashing.Dig
 	t.visitingTime.Update(time.Since(ts2))
 
 	// create a mutation for the new leaf
-	leafMutation := storage.NewMutation(storage.IndexPrefix, eventDigest, versionAsBytes)
+	//leafMutation := storage.NewMutation(storage.IndexPrefix, eventDigest, versionAsBytes)
 
 	// collect mutations
-	mutations := append(collect.Result(), leafMutation)
+	//mutations := append(collect.Result(), leafMutation)
 
 	t.addTime.Update(time.Since(ts1))
 
-	return rootHash, mutations, nil
+	return rootHash, collect.Result(), nil
 }
 
 func (t *HyperTree) RebuildCache() error {

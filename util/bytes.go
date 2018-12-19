@@ -30,6 +30,10 @@ func Uint16AsBytes(i uint16) []byte {
 	return b
 }
 
+func BytesAsUint16(b []byte) uint16 {
+	return binary.BigEndian.Uint16(b)
+}
+
 func BytesAsUint64(b []byte) uint64 {
 	return binary.BigEndian.Uint64(b)
 }

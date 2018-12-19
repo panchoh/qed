@@ -5,13 +5,15 @@ import (
 	"github.com/bbva/qed/storage"
 )
 
+const ()
+
 type PostOrderVisitor interface {
 	VisitRoot(pos *Position, leftResult, rightResult interface{}) interface{}
 	VisitNode(pos *Position, leftResult, rightResult interface{}) interface{}
 	VisitPartialNode(pos *Position, leftResult interface{}) interface{}
 	VisitLeaf(pos *Position, value []byte) interface{}
 	VisitCached(pos *Position, cachedDigest hashing.Digest) interface{}
-	VisitCollectable(pos *Position, result interface{}) interface{}
+	VisitMutable(pos *Position, result interface{}, prefix byte, mutationType storage.MutationType) interface{}
 	VisitCacheable(pos *Position, result interface{}) interface{}
 }
 
@@ -43,7 +45,7 @@ func (v *ComputeHashVisitor) VisitCached(pos *Position, cachedDigest hashing.Dig
 	return cachedDigest
 }
 
-func (v *ComputeHashVisitor) VisitCollectable(pos *Position, result interface{}) interface{} {
+func (v *ComputeHashVisitor) VisitMutable(pos *Position, result interface{}, storagePrefix byte, mutationType storage.MutationType) interface{} {
 	return result
 }
 
@@ -70,16 +72,14 @@ func (v *CachingVisitor) VisitCacheable(pos *Position, result interface{}) inter
 }
 
 type CollectMutationsVisitor struct {
-	storagePrefix byte
-	mutations     []*storage.Mutation
+	mutations []*storage.Mutation
 
 	PostOrderVisitor
 }
 
-func NewCollectMutationsVisitor(decorated PostOrderVisitor, storagePrefix byte) *CollectMutationsVisitor {
+func NewCollectMutationsVisitor(decorated PostOrderVisitor) *CollectMutationsVisitor {
 	return &CollectMutationsVisitor{
 		PostOrderVisitor: decorated,
-		storagePrefix:    storagePrefix,
 		mutations:        make([]*storage.Mutation, 0),
 	}
 }
@@ -88,8 +88,8 @@ func (v CollectMutationsVisitor) Result() []*storage.Mutation {
 	return v.mutations
 }
 
-func (v *CollectMutationsVisitor) VisitCollectable(pos *Position, result interface{}) interface{} {
-	value := v.PostOrderVisitor.VisitCollectable(pos, result).(hashing.Digest)
-	v.mutations = append(v.mutations, storage.NewMutation(v.storagePrefix, pos.Bytes(), value))
+func (v *CollectMutationsVisitor) VisitMutable(pos *Position, result interface{}, storagePrefix byte, mutationType storage.MutationType) interface{} {
+	value := v.PostOrderVisitor.VisitMutable(pos, result, storagePrefix, mutationType).(hashing.Digest)
+	v.mutations = append(v.mutations, storage.NewMutation(storagePrefix, pos.Bytes(), value, mutationType))
 	return result
 }

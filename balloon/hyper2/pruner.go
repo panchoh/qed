@@ -6,6 +6,7 @@ import (
 
 	"github.com/bbva/qed/hashing"
 	"github.com/bbva/qed/storage"
+	"github.com/bbva/qed/util"
 	"github.com/rcrowley/go-metrics"
 )
 
@@ -107,38 +108,53 @@ func (p *InsertPruner) traverseAndVisit(pos *Position, leaves storage.KVRange, v
 
 	result := v.VisitCacheable(pos, v.VisitNode(pos, left, right))
 	if p.cacheResolver.ShouldCollect(pos) {
-		return v.VisitCollectable(pos, result), nil
+		return v.VisitMutable(pos, result, storage.HyperCachePrefix, storage.Set), nil
 	}
 
 	return result, nil
 }
 
 func (p *InsertPruner) traverseWithoutCacheAndVisit(pos *Position, leaves storage.KVRange, v PostOrderVisitor) (interface{}, error) {
-	if p.navigator.IsLeaf(pos) && len(leaves) == 1 {
-		return v.VisitLeaf(pos, leaves[0].Value), nil
-	}
-	if len(leaves) == 0 {
+
+	numLeaves := len(leaves)
+	switch {
+	case numLeaves == 0:
 		return v.VisitCached(pos, p.defaultHashes[pos.Height]), nil
-	}
-	if len(leaves) > 1 && p.navigator.IsLeaf(pos) {
-		return nil, ErrLeavesSlice
-	}
+	case numLeaves == 1:
+		if p.cacheResolver.IsOnPath(pos) { // if its on the path of insertion then it's a new leaf
+			// Store the leaf at the higher level
+			return v.VisitMutable(pos, v.VisitLeaf(pos, leaves[0].Value), storage.IndexPrefix, storage.Set), nil
+		}
+		// it's a previously inserted leaf so we have to check its original height
+		// to figure out if we have to push down the leaf to a lower level
+		k := leaves[0].Key
+		previousPos := NewPosition(k[:len(k)-2], util.BytesAsUint16(k[len(k)-2:]))
+		if previousPos.Height > pos.Height {
+			// push down
+			v.VisitMutable(previousPos, v.VisitLeaf(pos, leaves[0].Value), storage.IndexPrefix, storage.Delete)
+			return v.VisitMutable(pos, v.VisitLeaf(pos, leaves[0].Value), storage.IndexPrefix, storage.Set), nil
+		}
+		return v.VisitLeaf(pos, leaves[0].Value), nil
+	case numLeaves > 1:
+		fallthrough
+	default:
+		if p.navigator.IsLeaf(pos) {
+			return nil, ErrLeavesSlice
+		}
+		// descend to children
+		rightPos := p.navigator.GoToRight(pos)
+		leftSlice, rightSlice := leaves.Split(rightPos.Index)
+		left, err := p.traverseWithoutCacheAndVisit(p.navigator.GoToLeft(pos), leftSlice, v)
+		if err != nil {
+			return nil, ErrLeavesSlice
+		}
+		right, err := p.traverseWithoutCacheAndVisit(rightPos, rightSlice, v)
+		if err != nil {
+			return nil, ErrLeavesSlice
+		}
 
-	// we do a post-order traversal
-
-	// split leaves
-	rightPos := p.navigator.GoToRight(pos)
-	leftSlice, rightSlice := leaves.Split(rightPos.Index)
-	left, err := p.traverseWithoutCacheAndVisit(p.navigator.GoToLeft(pos), leftSlice, v)
-	if err != nil {
-		return nil, ErrLeavesSlice
+		return v.VisitNode(pos, left, right), nil
 	}
-	right, err := p.traverseWithoutCacheAndVisit(rightPos, rightSlice, v)
-	if err != nil {
-		return nil, ErrLeavesSlice
-	}
-
-	return v.VisitNode(pos, left, right), nil
 }
 
 type InsertPruner2 struct {

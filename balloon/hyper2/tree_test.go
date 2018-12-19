@@ -60,7 +60,7 @@ func BenchmarkAdd(b *testing.B) {
 
 	hasher := hashing.NewSha256Hasher()
 	//fastCache := NewFastCache(CacheSize)
-	freeCache := NewFreeCache((1 << 28) * 70)
+	freeCache := NewFreeCache((1 << 27) * 100)
 	//bigCache := NewBigCache(1<<26, 100)
 	//fixedCache := NewFixedSizeCache(1 << 26)
 	tree := NewHyperTree(hashing.NewSha256Hasher, store, freeCache)

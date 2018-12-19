@@ -54,13 +54,21 @@ type ManagedStore interface {
 	GetLastVersion() (uint64, error)
 }
 
+type MutationType int
+
+const (
+	Set MutationType = iota
+	Delete
+)
+
 type Mutation struct {
 	Prefix     byte
 	Key, Value []byte
+	Type       MutationType
 }
 
-func NewMutation(prefix byte, key, value []byte) *Mutation {
-	return &Mutation{prefix, key, value}
+func NewMutation(prefix byte, key, value []byte, t MutationType) *Mutation {
+	return &Mutation{prefix, key, value, t}
 }
 
 type KVPair struct {

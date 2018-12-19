@@ -137,7 +137,15 @@ func (s BadgerStore) Mutate(mutations []*storage.Mutation) error {
 	err := s.db.Update(func(txn *b.Txn) error {
 		for _, m := range mutations {
 			key := append([]byte{m.Prefix}, m.Key...)
-			err := txn.Set(key, m.Value)
+			var err error
+			switch {
+			case m.Type == storage.Delete:
+				err = txn.Delete(key)
+			case m.Type == storage.Set:
+				fallthrough
+			default:
+				err = txn.Set(key, m.Value)
+			}
 			if err != nil {
 				return err
 			}

@@ -203,7 +203,7 @@ def main(argv):
         fig.append_trace(trace5_1, 3, 2)
         fig.append_trace(trace5_2, 3, 2)
 
-        fig.layout['yaxis2'].update(range=[0, 3000])
+        fig.layout['yaxis2'].update(range=[0, 8000])
         
         #fig = go.Figure(data=data, layout=layout)
         plot(fig)
