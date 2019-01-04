@@ -28,8 +28,8 @@ def main(argv):
         prunings_leaves = [m['hyper.pruning.get_leaves']['99%'] for m in metrics]
         visits = [m['hyper.visiting']['99%'] for m in metrics]
         prunings_before = [ x - y - z  for x, y, z in zip(visits, prunings_after, prunings_leaves)]
-        adds = [m['hyper.add']['95%'] for m in metrics]
-        test_adds = [m['hyper.test_add']['95%'] for m in metrics]
+        adds = [m['hyper.add']['99%'] for m in metrics]
+        test_adds = [m['hyper.test_add']['99%'] for m in metrics]
 
 
         minutes_chunked = group_chunks(minutes, 10)

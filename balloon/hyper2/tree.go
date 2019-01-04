@@ -34,7 +34,7 @@ type HyperTree struct {
 func NewHyperTree(hasherF func() hashing.Hasher, store storage.Store, cache ModifiableCache) *HyperTree {
 	hasher := hasherF()
 	//cacheLevel := hasher.Len() - uint16(math.Max(float64(2), math.Floor(float64(hasher.Len())/10)))
-	cacheLevel := hasher.Len() - 26
+	cacheLevel := hasher.Len() - 25
 	tree := &HyperTree{
 		store:         store,
 		cache:         cache,

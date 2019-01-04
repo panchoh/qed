@@ -24,6 +24,7 @@ import (
 
 	bd "github.com/bbva/qed/storage/badger"
 	bp "github.com/bbva/qed/storage/bplus"
+	rk "github.com/bbva/qed/storage/rocks"
 )
 
 func OpenBPlusTreeStore() (*bp.BPlusTreeStore, func()) {
@@ -37,6 +38,18 @@ func OpenBadgerStore(t require.TestingT, path string) (*bd.BadgerStore, func()) 
 	store, err := bd.NewBadgerStore(path)
 	if err != nil {
 		t.Errorf("Error opening badger store: %v", err)
+		t.FailNow()
+	}
+	return store, func() {
+		store.Close()
+		deleteFile(path)
+	}
+}
+
+func OpenRocksDBStore(t require.TestingT, path string) (*rk.RocksDBStore, func()) {
+	store, err := rk.NewRocksDBStore(path)
+	if err != nil {
+		t.Errorf("Error opening rocksdb store: %v", err)
 		t.FailNow()
 	}
 	return store, func() {
