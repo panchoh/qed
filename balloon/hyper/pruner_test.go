@@ -98,7 +98,7 @@ func TestInsertPruner(t *testing.T) {
 			key:   []byte{2},
 			value: []byte{1},
 			storeMutations: []*storage.Mutation{
-				{storage.IndexPrefix, []byte{0}, []byte{0}},
+				{storage.IndexPrefix, []byte{0}, []byte{0}, storage.Set},
 			},
 			expectedPruned: root(pos(0, 8),
 				cacheable(node(pos(0, 7),
@@ -125,8 +125,8 @@ func TestInsertPruner(t *testing.T) {
 			key:   []byte{255},
 			value: []byte{2},
 			storeMutations: []*storage.Mutation{
-				{storage.IndexPrefix, []byte{0}, []byte{0}},
-				{storage.IndexPrefix, []byte{2}, []byte{1}},
+				{storage.IndexPrefix, []byte{0}, []byte{0}, storage.Set},
+				{storage.IndexPrefix, []byte{2}, []byte{1}, storage.Set},
 			},
 			expectedPruned: root(pos(0, 8),
 				cached(pos(0, 7)),
@@ -183,7 +183,7 @@ func TestSearchPruner(t *testing.T) {
 		{
 			key: []byte{0},
 			storeMutations: []*storage.Mutation{
-				{storage.IndexPrefix, []byte{0}, []byte{0}},
+				{storage.IndexPrefix, []byte{0}, []byte{0}, storage.Set},
 			},
 			expectedPruned: root(pos(0, 8),
 				node(pos(0, 7),
@@ -207,8 +207,8 @@ func TestSearchPruner(t *testing.T) {
 		{
 			key: []byte{6},
 			storeMutations: []*storage.Mutation{
-				{storage.IndexPrefix, []byte{1}, []byte{1}},
-				{storage.IndexPrefix, []byte{6}, []byte{6}},
+				{storage.IndexPrefix, []byte{1}, []byte{1}, storage.Set},
+				{storage.IndexPrefix, []byte{6}, []byte{6}, storage.Set},
 			},
 			expectedPruned: root(pos(0, 8),
 				node(pos(0, 7),
@@ -263,7 +263,7 @@ func TestVerifyPruner(t *testing.T) {
 	store, closeF := storage_utils.OpenBPlusTreeStore()
 	defer closeF()
 	mutations := []*storage.Mutation{
-		{storage.IndexPrefix, []byte{0}, []byte{0}},
+		{storage.IndexPrefix, []byte{0}, []byte{0}, storage.Set},
 	}
 	store.Mutate(mutations)
 

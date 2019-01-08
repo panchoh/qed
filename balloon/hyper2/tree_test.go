@@ -325,7 +325,10 @@ func BenchmarkAdd3(b *testing.B) {
 			binary.LittleEndian.PutUint64(index, uint64(i))
 			e := append(rand.Bytes(32), index...)
 			key := hasher.Do(e)
-			_, mutations, _ := tree.Add(key, uint64(i))
+			_, mutations, err := tree.Add(key, uint64(i))
+			if err != nil {
+				b.Fatal(err)
+			}
 			store.Mutate(mutations)
 		})
 	}

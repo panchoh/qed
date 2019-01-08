@@ -103,11 +103,15 @@ func (s RocksDBStore) GetRange(prefix byte, start, end []byte) (storage.KVRange,
 	it := s.db.NewIterator(gorocksdb.NewDefaultReadOptions())
 	defer it.Close()
 	for it.Seek(startKey); it.Valid(); it.Next() {
-		key := it.Key().Data()
+		keySlice := it.Key()
+		key := make([]byte, keySlice.Size())
+		copy(key, keySlice.Data())
 		if bytes.Compare(key, endKey) > 0 {
 			break
 		}
-		value := it.Value().Data()
+		valueSlice := it.Value()
+		value := make([]byte, valueSlice.Size())
+		copy(value, valueSlice.Data())
 		result = append(result, storage.KVPair{key[1:], value})
 	}
 
@@ -122,9 +126,14 @@ func (s RocksDBStore) GetLast(prefix byte) (*storage.KVPair, error) {
 	it.SeekForPrev([]byte{prefix, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
 	if it.ValidForPrefix([]byte{prefix}) {
 		result := new(storage.KVPair)
-		key := it.Key().Data()
+		keySlice := it.Key()
+		key := make([]byte, keySlice.Size())
+		copy(key, keySlice.Data())
 		result.Key = key[1:]
-		result.Value = it.Value().Data()
+		valueSlice := it.Value()
+		value := make([]byte, valueSlice.Size())
+		copy(value, valueSlice.Data())
+		result.Value = value
 		return result, nil
 	}
 	return nil, storage.ErrKeyNotFound
@@ -145,8 +154,12 @@ func NewRocksDBKVPairReader(prefix byte, db *gorocksdb.DB) *RocksDBKVPairReader 
 
 func (r *RocksDBKVPairReader) Read(buffer []*storage.KVPair) (n int, err error) {
 	for n = 0; r.it.ValidForPrefix([]byte{r.prefix}) && n < len(buffer); r.it.Next() {
-		key := r.it.Key().Data()
-		value := r.it.Value().Data()
+		keySlice := r.it.Key()
+		valueSlice := r.it.Value()
+		key := make([]byte, keySlice.Size())
+		value := make([]byte, valueSlice.Size())
+		copy(key, keySlice.Data())
+		copy(value, valueSlice.Data())
 		buffer[n] = &storage.KVPair{key[1:], value}
 		n++
 	}

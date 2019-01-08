@@ -128,7 +128,7 @@ func (t *HyperTree) Add(eventDigest hashing.Digest, version uint64) (hashing.Dig
 	// t.visitingTime.Update(time.Since(ts3))
 
 	// create a mutation for the new leaf
-	leafMutation := storage.NewMutation(storage.IndexPrefix, eventDigest, versionAsBytes)
+	leafMutation := storage.NewMutation(storage.IndexPrefix, eventDigest, versionAsBytes, storage.Set)
 
 	// collect mutations
 	mutations := append(collect.Result(), leafMutation)

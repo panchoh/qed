@@ -17,6 +17,7 @@
 package hyper
 
 import (
+	"encoding/binary"
 	"expvar"
 	"os"
 	"testing"
@@ -289,13 +290,13 @@ func BenchmarkAdd(b *testing.B) {
 
 	log.SetLogger("BenchmarkAdd", log.SILENT)
 
-	store, closeF := storage_utils.OpenBadgerStore(b, "/var/tmp/hyper_tree_test.db")
+	store, closeF := storage_utils.OpenRocksDBStore(b, "/var/tmp/hyper_tree_test.db")
 	defer closeF()
 
 	hasher := hashing.NewSha256Hasher()
-	fastCache := cache.NewFastCache(CacheSize)
-	//freeCache := cache.NewFreeCache((1 << 26) * 100)
-	tree := NewHyperTree(hashing.NewSha256Hasher, store, fastCache)
+	//fastCache := cache.NewFastCache(CacheSize)
+	freeCache := cache.NewFreeCache((1 << 26) * 100)
+	tree := NewHyperTree(hashing.NewSha256Hasher, store, freeCache)
 
 	t := metrics.NewTimer()
 	metrics.Register("hyper.test_add", t)
@@ -353,7 +354,7 @@ func BenchmarkAdd(b *testing.B) {
 				m := reg.GetOrRegister("lsm_size_bytes", metrics.NewGauge())
 				m.(metrics.Gauge).Update(kv.Value.(*expvar.Int).Value())
 			})
-			cacheSize.Update(int64(fastCache.Size()))
+			cacheSize.Update(int64(freeCache.Size()))
 			metrics.CaptureDebugGCStatsOnce(metrics.DefaultRegistry)
 			metrics.CaptureRuntimeMemStatsOnce(metrics.DefaultRegistry)
 
@@ -364,11 +365,17 @@ func BenchmarkAdd(b *testing.B) {
 	//go metrics.WriteJSON(metrics.DefaultRegistry, 1*time.Minute, f)
 
 	b.ResetTimer()
-	b.N = 20000000
+	b.N = 200000000
 	for i := 0; i < b.N; i++ {
 		t.Time(func() {
-			key := hasher.Do(rand.Bytes(32))
-			_, mutations, _ := tree.Add(key, uint64(i))
+			index := make([]byte, 8)
+			binary.LittleEndian.PutUint64(index, uint64(i))
+			e := append(rand.Bytes(32), index...)
+			key := hasher.Do(e)
+			_, mutations, err := tree.Add(key, uint64(i))
+			if err != nil {
+				b.Fatal(err)
+			}
 			store.Mutate(mutations)
 		})
 	}

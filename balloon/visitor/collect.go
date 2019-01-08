@@ -27,6 +27,6 @@ func (v CollectMutationsVisitor) Result() []*storage.Mutation {
 
 func (v *CollectMutationsVisitor) VisitCollectable(pos navigator.Position, result interface{}) interface{} {
 	value := v.PostOrderVisitor.VisitCollectable(pos, result).(hashing.Digest)
-	v.mutations = append(v.mutations, storage.NewMutation(v.storagePrefix, pos.Bytes(), value))
+	v.mutations = append(v.mutations, storage.NewMutation(v.storagePrefix, pos.Bytes(), value, storage.Set))
 	return result
 }
