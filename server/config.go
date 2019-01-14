@@ -64,6 +64,9 @@ type Config struct {
 	// Enables tampering endpoint.
 	EnableTampering bool
 
+	// Enables metrics endpoint.
+	EnableMetrics bool
+
 	// Enable TLS service
 	EnableTLS bool
 
@@ -93,6 +96,7 @@ func DefaultConfig() *Config {
 		RaftPath:          currentDir + "/raft",
 		EnableProfiling:   false,
 		EnableTampering:   false,
+		EnableMetrics:     true,
 		EnableTLS:         true,
 		SSLCertificate:    fmt.Sprintf("%s/.ssh/server.crt", homeDir),
 		SSLCertificateKey: fmt.Sprintf("%s/.ssh/server.key", homeDir),

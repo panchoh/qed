@@ -43,6 +43,8 @@ import (
 	"github.com/bbva/qed/sign"
 	"github.com/bbva/qed/storage/badger"
 	"github.com/bbva/qed/util"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Server encapsulates the data and login to start/stop a QED server
@@ -140,6 +142,17 @@ func NewServer(conf *Config) (*Server, error) {
 	if conf.EnableProfiling {
 		server.profilingServer = newHTTPServer("localhost:6060", nil)
 	}
+	if conf.EnableMetrics {
+		var fooCount = prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "foo_total",
+			Help: "Number of foo successfully processed.",
+		})
+
+		fooCount.Add(1)
+		prometheus.MustRegister(fooCount)
+
+		http.Handle("/metrics", promhttp.Handler())
+	}
 
 	return server, nil
 }
@@ -168,6 +181,15 @@ func (s *Server) Start() error {
 	err := s.raftBalloon.Open(s.bootstrap)
 	if err != nil {
 		return err
+	}
+
+	if s.conf.EnableMetrics {
+		go func() {
+			log.Debugf("	* Starting metrics HTTP server in addr: localhost:9990")
+			if err := http.ListenAndServe("localhost:9990", nil); err != http.ErrServerClosed {
+				log.Errorf("Can't start metrics HTTP server: %s", err)
+			}
+		}()
 	}
 
 	if s.profilingServer != nil {
