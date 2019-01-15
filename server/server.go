@@ -29,6 +29,7 @@ import (
 	"net/http"
 	_ "net/http/pprof" // this will enable the default profiling capabilities
 	"os"
+	"time"
 
 	"github.com/bbva/qed/api/apihttp"
 	"github.com/bbva/qed/api/mgmthttp"
@@ -43,8 +44,10 @@ import (
 	"github.com/bbva/qed/sign"
 	"github.com/bbva/qed/storage/badger"
 	"github.com/bbva/qed/util"
+	metricsprom "github.com/deathowl/go-metrics-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rcrowley/go-metrics"
 )
 
 // Server encapsulates the data and login to start/stop a QED server
@@ -354,4 +357,13 @@ func newHTTPServer(addr string, mux *http.ServeMux) *http.Server {
 		Addr:    addr,
 		Handler: handler,
 	}
+}
+
+func foo_metrics() {
+	metrics.RegisterDebugGCStats(metrics.DefaultRegistry)
+	metrics.CaptureDebugGCStatsOnce(metrics.DefaultRegistry)
+
+	prometheusRegistry := prometheus.NewRegistry()
+	pClient := metricsprom.NewPrometheusProvider(metrics.DefaultRegistry, "test", "subsys", prometheusRegistry, 1*time.Second)
+	go pClient.UpdatePrometheusMetrics()
 }
