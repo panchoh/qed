@@ -90,7 +90,7 @@ func DefaultConfig() *Config {
 		RaftAddr:          "127.0.0.1:9000",
 		MgmtAddr:          "127.0.0.1:8090",
 		RaftJoinAddr:      []string{},
-		GossipAddr:        "127.0.0.1:9100",
+		GossipAddr:        "127.0.0.1:19100",
 		GossipJoinAddr:    []string{},
 		DBPath:            currentDir + "/data",
 		RaftPath:          currentDir + "/raft",

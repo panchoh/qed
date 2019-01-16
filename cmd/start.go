@@ -67,7 +67,7 @@ func newStartCommand(ctx *cmdContext) *cobra.Command {
 	cmd.Flags().StringVar(&conf.RaftAddr, "raft-addr", ":9000", "Raft bind address (host:port)")
 	cmd.Flags().StringVar(&conf.MgmtAddr, "mgmt-addr", ":8090", "Management endpoint bind address (host:port)")
 	cmd.Flags().StringSliceVar(&conf.RaftJoinAddr, "join-addr", []string{}, "Raft: Comma-delimited list of nodes ([host]:port), through which a cluster can be joined")
-	cmd.Flags().StringVar(&conf.GossipAddr, "gossip-addr", ":9100", "Gossip: management endpoint bind address (host:port)")
+	cmd.Flags().StringVar(&conf.GossipAddr, "gossip-addr", ":19100", "Gossip: management endpoint bind address (host:port)")
 	cmd.Flags().StringSliceVar(&conf.GossipJoinAddr, "gossip-join-addr", []string{}, "Gossip: Comma-delimited list of nodes ([host]:port), through which a cluster can be joined")
 	cmd.Flags().StringVarP(&conf.DBPath, "dbpath", "p", "/var/tmp/qed/data", "Set default storage path")
 	cmd.Flags().StringVar(&conf.RaftPath, "raftpath", "/var/tmp/qed/raft", "Set raft storage path")

@@ -61,7 +61,7 @@ func newAgent(id int, name string, role member.Type, p gossip.Processor, t *test
 
 	switch role {
 	case member.Auditor:
-		agentConf.BindAddr = fmt.Sprintf("127.0.0.1:910%d", id)
+		agentConf.BindAddr = fmt.Sprintf("127.0.0.1:1910%d", id)
 	case member.Monitor:
 		agentConf.BindAddr = fmt.Sprintf("127.0.0.1:920%d", id)
 	case member.Publisher:
