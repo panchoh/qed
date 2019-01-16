@@ -146,25 +146,35 @@ func NewServer(conf *Config) (*Server, error) {
 		server.profilingServer = newHTTPServer("localhost:6060", nil)
 	}
 	if conf.EnableMetrics {
+		prometheusRegistry := prometheus.NewRegistry()
+
 		var fooCount = prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "foo_total",
 			Help: "Number of foo successfully processed.",
 		})
 
 		fooCount.Add(1)
-		prometheus.MustRegister(fooCount)
+		prometheusRegistry.MustRegister(fooCount)
 
-		http.Handle("/metrics", promhttp.Handler())
+		http.Handle(
+			"/metrics",
+			promhttp.InstrumentMetricHandler(
+				prometheusRegistry,
+				promhttp.HandlerFor(
+					prometheusRegistry,
+					promhttp.HandlerOpts{},
+				),
+			),
+		)
 
 		metrics.RegisterDebugGCStats(metrics.DefaultRegistry)
 		metrics.CaptureDebugGCStatsOnce(metrics.DefaultRegistry)
 
-		// prometheusRegistry := prometheus.NewRegistry()
 		pclient := metricsprom.NewPrometheusProvider(
 			metrics.DefaultRegistry,
 			"qed",
 			"subsys",
-			prometheus.DefaultRegisterer,
+			prometheusRegistry,
 			1*time.Second)
 		go pclient.UpdatePrometheusMetrics()
 	}
