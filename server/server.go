@@ -155,6 +155,18 @@ func NewServer(conf *Config) (*Server, error) {
 		prometheus.MustRegister(fooCount)
 
 		http.Handle("/metrics", promhttp.Handler())
+
+		metrics.RegisterDebugGCStats(metrics.DefaultRegistry)
+		metrics.CaptureDebugGCStatsOnce(metrics.DefaultRegistry)
+
+		// prometheusRegistry := prometheus.NewRegistry()
+		pclient := metricsprom.NewPrometheusProvider(
+			metrics.DefaultRegistry,
+			"qed",
+			"subsys",
+			prometheus.DefaultRegisterer,
+			1*time.Second)
+		go pclient.UpdatePrometheusMetrics()
 	}
 
 	return server, nil
@@ -357,13 +369,4 @@ func newHTTPServer(addr string, mux *http.ServeMux) *http.Server {
 		Addr:    addr,
 		Handler: handler,
 	}
-}
-
-func foo_metrics() {
-	metrics.RegisterDebugGCStats(metrics.DefaultRegistry)
-	metrics.CaptureDebugGCStatsOnce(metrics.DefaultRegistry)
-
-	prometheusRegistry := prometheus.NewRegistry()
-	pClient := metricsprom.NewPrometheusProvider(metrics.DefaultRegistry, "test", "subsys", prometheusRegistry, 1*time.Second)
-	go pClient.UpdatePrometheusMetrics()
 }
