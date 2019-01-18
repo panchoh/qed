@@ -1,0 +1,63 @@
+* Exporter for memcached: https://github.com/memcached/memcached
+** makes use of the client library:
+   https://github.com/grobie/gomemcache/blob/master/memcache/memcache.go
+*** memcache proper seems to export its metrics via a simple hash
+*** for a taste, try https://github.com/memcached/memcached/blob/master/scripts/memcached-tool
+It's available in the arch package for memcached, trivial to use
+
+Or, simply, telnetting into 127.0.0.1:11211 and issuing a 'stats' command, will yield:
+
+#+BEGIN_SRC shell
+$ telnet localhost 11211
+Trying ::1...
+Connected to localhost.
+Escape character is '^]'.
+stats
+STAT pid 7045
+STAT uptime 452
+STAT time 1547810890
+STAT version 1.5.12
+STAT libevent 2.1.8-stable
+STAT pointer_size 64
+STAT rusage_user 0.067992
+STAT rusage_system 0.101725
+STAT max_connections 1024
+STAT curr_connections 2
+STAT total_connections 12
+STAT rejected_connections 0
+STAT connection_structures 3
+STAT reserved_fds 20
+...
+#+END_SRC
+* Locating a exporter for a project written in golang that does not use the native client
+** bingo! Hashicorp's Consul is written in go, has an official prometheus exporter, and also supports prometheus natively!
+https://github.com/hashicorp/consul/blob/master/lib/telemetry.go
+
+They make use of https://github.com/armon/go-metrics (doc: https://godoc.org/github.com/armon/go-metrics), which natively exports to prometheus, DataDog, and more.
+
+#+BEGIN_SRC go
+func prometheusSink(cfg TelemetryConfig, hostname string) (metrics.MetricSink, error) {
+	if cfg.PrometheusRetentionTime.Nanoseconds() < 1 {
+		return nil, nil
+	}
+	prometheusOpts := prometheus.PrometheusOpts{
+		Expiration: cfg.PrometheusRetentionTime,
+	}
+	sink, err := prometheus.NewPrometheusSinkFrom(prometheusOpts)
+	if err != nil {
+		return nil, err
+	}
+	return sink, nil
+}
+#+END_SRC
+
+* We are currently using https://github.com/rcrowley/go-metrics
+(doc: https://godoc.org/github.com/rcrowley/go-metrics), which can be used with
+https://github.com/deathowl/go-metrics-prometheus to export data to prometheus
+
+
+* Sample exporter (for rtorrent), https://github.com/mdlayher/rtorrent_exporter/blob/master/downloadscollector.go
+
+* Conclusions
+Implementing an exporter is not trivial (for me, at least).  I think I'll stick to my initial approach of exporting prometheus metrics from the main qed process.
+I'll review this decision when/if needed.
