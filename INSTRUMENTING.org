@@ -61,3 +61,47 @@ https://github.com/deathowl/go-metrics-prometheus to export data to prometheus
 * Conclusions
 Implementing an exporter is not trivial (for me, at least).  I think I'll stick to my initial approach of exporting prometheus metrics from the main qed process.
 I'll review this decision when/if needed.
+
+
+* Links
+** client_golang
+https://github.com/prometheus/client_golang
+https://godoc.org/github.com/prometheus/client_golang/prometheus
+https://godoc.org/github.com/prometheus/client_golang/prometheus#Metric
+*** examples
+https://github.com/prometheus/client_golang/blob/master/prometheus/examples_test.go
+
+** How not to use Prometheus metrics
+https://github.com/prometheus/client_golang/issues/486
+https://godoc.org/github.com/prometheus/client_golang/prometheus/testutil#ToFloat64
+
+** Example user: minio (via AAlda)
+https://github.com/minio/minio/blob/5fbdd70de9ec878246536dc7fd052a364db65393/docs/metrics/README.md
+https://github.com/minio/cookbook/blob/master/docs/how-to-monitor-minio-with-prometheus.md
+
+
+** Scraping over TLS
+https://github.com/prometheus/prometheus/issues/474
+
+
+** Full stack (Prometheus, node-exporter, Grafana, cAdvisor) (via: JLLucas)
+https://github.com/vegasbrianc/prometheus
+
+** Article with examples
+https://alex.dzyoba.com/blog/go-prometheus-service/
+
+
+** Prometheus: Up & Running examples
+https://github.com/prometheus-up-and-running/examples
+
+
+** RCrowley's go-metrics (via AAlda)
+https://github.com/rcrowley/go-metrics
+https://godoc.org/github.com/rcrowley/go-metrics
+https://godoc.org/github.com/rcrowley/go-metrics#Registry
+
+** Auto poster from RCrowley's go-metrics to Prometheus
+https://github.com/deathowl/go-metrics-prometheus
+** Live demo of Prometheus, Grafana et al, courtesy of Brian Brazil (robustperception)
+http://demo.robustperception.io
+https://github.com/RobustPerception/demo_prometheus_ansible/blob/master/roles/prometheus/tasks/main.yml
