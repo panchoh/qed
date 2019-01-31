@@ -105,3 +105,11 @@ https://github.com/deathowl/go-metrics-prometheus
 ** Live demo of Prometheus, Grafana et al, courtesy of Brian Brazil (robustperception)
 http://demo.robustperception.io
 https://github.com/RobustPerception/demo_prometheus_ansible/blob/master/roles/prometheus/tasks/main.yml
+
+** Consul supports prometheus via its underlying metrics system:
+https://github.com/hashicorp/consul/issues/4014
+https://github.com/armon/go-metrics
+
+** example kubernetes prometheus metrics handling:
+https://github.com/kubernetes/kubernetes/blob/148248353b883f0dbbefa38100b675a7ed3ba587/pkg/scheduler/metrics/metrics.go
+TL;DR: metrics are defined as vars, then added to a list, and registered in bulk
