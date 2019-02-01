@@ -79,6 +79,8 @@ https://godoc.org/github.com/prometheus/client_golang/prometheus/testutil#ToFloa
 https://github.com/minio/minio/blob/5fbdd70de9ec878246536dc7fd052a364db65393/docs/metrics/README.md
 https://github.com/minio/cookbook/blob/master/docs/how-to-monitor-minio-with-prometheus.md
 
+*** How to merge the DefaultRegistry with a custom one, using Gatherer(), making use of the default Collectors (GC, process) that are linked to the DefaultRegistry.
+https://github.com/minio/minio/blob/master/cmd/metrics.go#L164
 
 ** Scraping over TLS
 https://github.com/prometheus/prometheus/issues/474
